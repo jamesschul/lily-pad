@@ -1,16 +1,11 @@
 /*********************************************************
-                  Main Window!
+2D+T Simulation approximations of flow past slender bodies
+at an angle of attack.
 
-Click the "Run" button to Run the simulation.
-
-Change the geometry, flow conditions, numercial parameters
-visualizations and measurments from this window.
-
-This screen has an example. Other examples are found at
-the top of each tab. Copy/paste them here to run, but you
-can only have one setup & run at a time.
-
+James Schulmeister
+MIT, 2016
 *********************************************************/
+
 // Circle that can be dragged by the mouse
 BDIM flow;
 Body body;
