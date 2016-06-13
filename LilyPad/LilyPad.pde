@@ -11,27 +11,26 @@ the top of each tab. Copy/paste them here to run, but you
 can only have one setup & run at a time.
 
 *********************************************************/
-// Circle that can be dragged by the mouse
-BDIM flow;
-Body body;
-FloodPlot flood;
+
+
+Ellipsoid run;
+CirculationFinder cf;
+
+// --input parameters-------
+int n=(int)pow(2, 8);  // number of grid points along a side of domain
+float aoa = 30;  // angle of attack (degrees)
+float fineness = 5;  // major/minor axis
+float d = 0.25;  // diameter at beginning and end of sim (<1)
+float Re = 1e4;  // Reynolds number by ellipsoid length
+String name = "/Volumes/Macintosh HD/Users/jamesschulmeister/Dropbox (MIT)/2D+T_ellipsoid/D" + str(round(n/10)) + "_AOA" + str(round(aoa));
+boolean recording = false;
+// -------------------------
 
 void setup(){
-  size(800,800);                             // display window size
-  int n=(int)pow(2,7);                       // number of grid points
-  float L = n/8.;                            // length-scale in grid units
-  Window view = new Window(n,n);
+  run = new Ellipsoid(aoa, fineness, d, Re, name, recording);
+  size(600, 600);
+}
 
-  body = new CircleBody(n/3,n/2,L,view);     // define geom
-  flow = new BDIM(n,n,1.5,body);             // solve for flow using BDIM
-  flood = new FloodPlot(view);               // intialize a flood plot...
-  flood.setLegend("vorticity",-.5,.5);       //    and its legend
-}
 void draw(){
-  body.follow();                             // update the body
-  flow.update(body); flow.update2();         // 2-step fluid update
-  flood.display(flow.u.vorticity());         // compute and display vorticity
-  body.display();                            // display the body
+  run.update();
 }
-void mousePressed(){body.mousePressed();}    // user mouse...
-void mouseReleased(){body.mouseReleased();}  // interaction methods

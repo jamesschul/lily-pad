@@ -30,30 +30,29 @@ the top of each tab. Copy/paste them here to run, but you
 can only have one setup & run at a time.
 
 *********************************************************/
-// Circle that can be dragged by the mouse
-BDIM flow;
-Body body;
-FloodPlot flood;
+
+
+Ellipsoid run;
+CirculationFinder cf;
+
+// --input parameters-------
+int n=(int)pow(2, 8);  // number of grid points along a side of domain
+float aoa = 30;  // angle of attack (degrees)
+float fineness = 5;  // major/minor axis
+float d = 0.25f;  // diameter at beginning and end of sim (<1)
+float Re = 1e4f;  // Reynolds number by ellipsoid length
+String name = "/Volumes/Macintosh HD/Users/jamesschulmeister/Dropbox (MIT)/2D+T_ellipsoid/D" + str(round(n/10)) + "_AOA" + str(round(aoa));
+boolean recording = false;
+// -------------------------
 
 public void setup(){
-                               // display window size
-  int n=(int)pow(2,7);                       // number of grid points
-  float L = n/8.f;                            // length-scale in grid units
-  Window view = new Window(n,n);
+  run = new Ellipsoid(aoa, fineness, d, Re, name, recording);
+  
+}
 
-  body = new CircleBody(n/3,n/2,L,view);     // define geom
-  flow = new BDIM(n,n,1.5f,body);             // solve for flow using BDIM
-  flood = new FloodPlot(view);               // intialize a flood plot...
-  flood.setLegend("vorticity",-.5f,.5f);       //    and its legend
-}
 public void draw(){
-  body.follow();                             // update the body
-  flow.update(body); flow.update2();         // 2-step fluid update
-  flood.display(flow.u.vorticity());         // compute and display vorticity
-  body.display();                            // display the body
+  run.update();
 }
-public void mousePressed(){body.mousePressed();}    // user mouse...
-public void mouseReleased(){body.mouseReleased();}  // interaction methods
 /*********************************************************
 Simple model of a swimming plesiosaur
  
@@ -1354,6 +1353,298 @@ class CounterRotatingCylinders extends BodyUnion{
     float omega = xi*2.f/d;
     this.bodyList.get(0).rotate(-omega*dt);
     this.bodyList.get(1).rotate( omega*dt);
+  }
+}
+/*************************
+Ellipsoid Class
+Circle that expands and shrinks, modeling the 2D+T flow past an ellipsoid
+
+Example code:
+
+Ellipsoid run;
+
+// --input parameters-------
+int n=(int)pow(2, 9)+2;  // number of grid points along a side of domain
+float aoa = 15;  // angle of attack (degrees)
+float fineness = 5;  // major/minor axis
+float d = 0.25;  // diameter at beginning and end of sim (<1)
+float Re = 1e4;  // Reynolds number by ellipsoid length
+String name = "AOA_"+str(aoa);
+boolean saveData = false;
+// -------------------------
+
+void setup(){
+  run = new Ellipsoid(aoa, fineness, d, Re, name, saveData);
+}
+
+void draw(){
+  run.update();
+}
+
+***********************/
+
+class Ellipsoid{
+
+  ExpandingBDIM flow;
+  EllipsoidBody body;
+  FloodPlot flood;
+  float t=0, D, aoa, d, L_D;
+  // SaveDataJ u;
+  // SaveDataJ v;
+  // SaveDataJ w;
+  // SaveDataJ p;
+  // SaveDataJ psi;
+  // SaveDataJ pProfile;
+  // SaveDataJ drag;
+  // SaveDataJ dist;
+
+  Ellipsoid(float a, float fine, float ds, float Re, String name, boolean recording){
+    this.D = n/10.f;  // blockage ratio of 10%
+    this.L_D = fine;
+    this.d = ds;
+    this.aoa = a*PI/180;  // convert angle of attack from degrees to radians
+
+    // set window view area and zoom
+    float zoom = 3;
+    Window view = new Window(PApplet.parseInt((n-n/zoom)/2), PApplet.parseInt((n-n/zoom)/2), PApplet.parseInt(n/zoom), PApplet.parseInt(n/zoom));
+
+    body = new EllipsoidBody(n/2, n/2, d*D, 1, view); // define geom
+    flow = new ExpandingBDIM(n, n, 0, body, L_D*D/Re, true);   // QUICK with adaptive dt
+    flow.dt = .01f; // initial time step
+
+    cf = new CirculationFinder(flow,body,view);
+    cf.setAnnotate(true,1.0f/d);
+
+    flood = new FloodPlot(view);
+    flood.range = new Scale(-.5f, .5f);
+    flood.setLegend("vorticity");
+
+    // // initialize output files
+    // drag = new SaveDataJ(name + "_drag_circle.txt");
+    // if (recording) {
+    //   u = new SaveDataJ(name + "_u.txt");
+    //   v = new SaveDataJ(name + "_v.txt");
+    //   w = new SaveDataJ(name + "_w.txt");
+    //   p = new SaveDataJ(name + "_p.txt");
+    //   psi = new SaveDataJ(name + "_psi.txt");
+    //   pProfile = new SaveDataJ(name + "_pProfile.txt");
+    //   dist = new SaveDataJ(name + "_dist.txt");
+    // }
+  }
+
+  public void update() {
+    float dt = flow.dt;
+    t += dt;
+    float aspect = 1;
+
+    float trans = .1f*d;  // time to slow body to rest
+    if (t/D < trans) { // smoothly slow body to rest
+      body.translate(.5f*dt*(cos(PI*(t/D)/trans)+1), 0);
+    }
+
+    // increase and decrease diameter as an ellipse at angle of attack
+    float mTime = L_D*tan(aoa);  // total time from appearance to disappearance
+    float major = mTime/2;  // major radius
+    float minor = major/L_D;  // minor radis
+    float Ds = d;  // starting and ending diameter
+    float off = major*(1-sqrt(1-sq(Ds)));  // time offset from appearance to starting diameter
+
+    // after flow accelerates, compute diameter as a function of time
+    if ((t/D>trans) && (t/D < (trans+mTime-2*off))) {
+      Ds = (sqrt(1-sq((t/D-trans+off-major)/major)));
+    }
+    if(t/D>(trans+mTime-2*off)/2) {
+      // aspect = 1/Ds;  // shrinks as an ellipse in the after half
+      aspect = 1;  // shrinks as a circle (unmodified spheroid)
+    }
+
+    body.update(Ds*D,aspect);  // pass the new diameter and aspect ratio to the body
+
+    flow.update(body);
+    flow.update2();
+
+
+    flood.display(flow.u.vorticity());
+    body.display();
+    flood.displayTime(t/D);
+
+    PVector force = body.pressForce(flow.p);
+    // drag.addFloat(t/D,force.x);
+
+    // if (((t)%(0.1*D)) <= dt) {
+    //   // save the final flow field
+    //   if (recording) {
+    //     // add data to output files
+    //     u.addField(t/D, flow.u.x);
+    //     v.addField(t/D, flow.u.y);
+    //     w.addField(t/D, flow.u.vorticity());
+    //     p.addField(t/D, flow.p);
+    //     psi.addField(t/D, flow.u.streamFunc());
+    //     pProfile.addProfileData(t/D,body.coords,flow.p);
+    //     dist.addField(t/D, flow.bodyNull);
+    //   }
+    //   if (t/D > 1.25*(trans+mTime)) {
+    //     if (recording) {
+    //       // close the output data files
+    //       u.finish();
+    //       v.finish();
+    //       w.finish();
+    //       p.finish();
+    //       psi.finish();
+    //       pProfile.finish();
+    //       dist.finish();
+    //     }
+    //     cf.update();
+    //     cf.display();
+    //     // saveFrame("AOA20_ellipse.png");
+    //     drag.finish();
+    //     exit();
+    //   }
+    // }
+  }
+}
+
+// EllipsoidBody is a circle that expands and contracts according to the
+// 2D+T approximation for the flow past an ellipsoid at and angle of attack.
+class EllipsoidBody extends EllipseBody {
+    float dh = 0;
+    PVector dcen[];
+
+    EllipsoidBody( float x, float y, float _h, float _a, Window window ) {
+      super(x, y, _h, _a, window);
+      // unsteady = true;
+      dcen = new PVector[m];
+      for ( int i=0; i<m; i++ ) dcen[i] = new PVector(0, 0);
+    }
+
+    public void update(float d, float as) {
+      // update the circle's diameter
+      h = d;
+      a = as;
+
+      // update body coordinates
+      EllipseBody nbod = new EllipseBody(xc.x, xc.y, h, a, window);
+      for ( int i=0; i<m; i++ ) {
+        dcen[i] = PVector.sub(nbod.orth[i].cen, orth[i].cen);
+      }
+      coords = nbod.coords;
+      end();
+    }
+
+    // get "nearest" section body velocity for collapse
+    public float velocity( int d, float dt, float x, float y ) {
+      float dis = -1e10f;
+      PVector v = new PVector(0, 0);
+      for ( int i=0; i<m; i++ ) {
+        float d2 = orth[i].distance(x, y);
+        if ( d2 > dis ) {
+          dis = d2;
+          v = dcen[i];
+        }
+      }
+
+      PVector r = new PVector(x, y);
+      r.sub(xc);
+      if (d==1) return dxc.x/dt - r.y*dphi/dt + v.x/dt;
+      else     return dxc.y/dt + r.x*dphi/dt + v.y/dt;
+    }
+
+    // calculate flux
+    public float get_flux ( VectorField p ) {
+      float pv = 0;
+      for ( OrthoNormal o: orth ) {
+        float pdlx = p.x.linear( o.cen.x, o.cen.y )*o.nx*o.l;
+        float pdly = p.y.linear( o.cen.x, o.cen.y )*o.ny*o.l;
+        pv += pdlx + pdly;
+      }
+      return pv;
+    }
+
+     public void display( int C, Window window ) { // note: can display while adding
+       noFill();
+       stroke(bodyOutline);
+       strokeWeight(1);
+       beginShape();
+       for ( PVector x: coords ) vertex(window.px(x.x), window.py(x.y));
+       endShape(CLOSE);
+     }
+  }
+
+class ExpandingBDIM extends BDIM {
+  float flux;
+  Field delc;
+  Field bodyNull;
+
+  ExpandingBDIM( int n, int m, float dt, EllipsoidBody body, float nu, boolean QUICK) {
+    super(n, m, dt, body, nu, QUICK);
+  }
+
+  public void update( Body body ) {
+    get_coeffs(body);
+    update();
+  }
+
+  public void updateUP( VectorField R, VectorField coeff ) {
+    run.flow.u.x.gradientExit = false;
+    R.plusEq(PVector.mult(g, dt));
+    u.eq(del.times(R).minus(ub.times(del.plus(-1))));
+    if (mu1) u.plusEq(del1.times((R.minus(ub)).normalGrad(wnx, wny)));
+    u.setBC();
+
+    // update cell center delta
+    delc = new Field(n, m, 0, 1);
+    for ( int i=1 ; i<n-1 ; i++ ) {
+      for ( int j=1 ; j<m-1; j++ ) {
+        float dis = run.body.distance( (float)(i), (float)(j) );
+        delc.a[i][j] = delta0(dis);
+      }
+    }
+
+    // update bodyNull field to remove extraneous vorticity
+    bodyNull = new Field(n, m, 0, 1);
+    for ( int i=1 ; i<n-1 ; i++ ) {
+      for ( int j=1 ; j<m-1; j++ ) {
+        float dis = run.body.distance( (float)(i), (float)(j) );
+        bodyNull.a[i][j] = delta0(dis - 2*eps);
+      }
+    }
+
+    // new exit treatment
+    float sink = run.body.get_flux(run.flow.ub)/(2*PI);
+
+    // downstream
+    for ( int j=0 ; j<m ; j++ ) {
+      float x = n/2, y = j - m/2;
+      float r = sqrt(sq(x) + sq(y));
+      float theta = atan(abs(y/x));
+      // u.x.a[n-1][j] += sink/r*cos(theta);
+      u.x.a[n-1][j] += sink/m*2*PI;
+    }
+    // // upstream
+    // for ( int j=0 ; j<m ; j++ ) {
+    //   float x = n/2, y = j - m/2;
+    //   float r = sqrt(sq(x) + sq(y));
+    //   float theta = atan(abs(y/x));
+    //   u.x.a[1][j] -= sink/r*cos(theta);
+    // }
+    // // top
+    // for ( int i=0 ; i<n ; i++ ) {
+    //   float x = i - n/2, y = m/2;
+    //   float r = sqrt(sq(x) + sq(y));
+    //   float theta = atan(abs(y/x));
+    //   u.y.a[i][1] -= sink/r*sin(theta);
+    // }
+    // // bottom
+    // for ( int i=0 ; i<n ; i++ ) {
+    //   float x = i - n/2, y = m/2;
+    //   float r = sqrt(sq(x) + sq(y));
+    //   float theta = atan(abs(y/x));
+    //   u.y.a[i][m-1] += sink/r*sin(theta);
+    // }
+
+    // new source term
+    Field s = u.divergence().plus(delc.plus(-1).times(ub.divergence()));
+    p = u.project(coeff, p, s);
   }
 }
 /**********************************
@@ -4313,7 +4604,7 @@ class Scale{
   public float out( float in ){ return (in-inS)*r+outS;} 
   public float in( float out ){ return (out-outS)/r+inS;}
 }
-  public void settings() {  size(800,800); }
+  public void settings() {  size(600, 600); }
   static public void main(String[] passedArgs) {
     String[] appletArgs = new String[] { "LilyPad" };
     if (passedArgs != null) {
