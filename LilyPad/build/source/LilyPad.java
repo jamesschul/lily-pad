@@ -29,13 +29,13 @@ Ellipsoid run;
 CirculationFinder cf;
 
 // --input parameters-------
-int n=(int)pow(2, 8);  // number of grid points along a side of domain
+int n=(int)pow(2, 6);  // number of grid points along a side of domain
 float aoa = 30;  // angle of attack (degrees)
 float fineness = 5;  // major/minor axis
 float d = 0.25f;  // diameter at beginning and end of sim (<1)
 float Re = 1e4f;  // Reynolds number by ellipsoid length
 String name = "/Volumes/Macintosh HD/Users/jamesschulmeister/Dropbox (MIT)/2D+T_ellipsoid/D" + str(round(n/10)) + "_AOA" + str(round(aoa));
-boolean recording = false;
+boolean recording = true;
 // -------------------------
 
 public void setup(){
@@ -1382,14 +1382,14 @@ class Ellipsoid{
   EllipsoidBody body;
   FloodPlot flood;
   float t=0, D, aoa, d, L_D;
-  // SaveDataJ u;
-  // SaveDataJ v;
-  // SaveDataJ w;
-  // SaveDataJ p;
-  // SaveDataJ psi;
-  // SaveDataJ pProfile;
-  // SaveDataJ drag;
-  // SaveDataJ dist;
+  SaveDataJ u;
+  SaveDataJ v;
+  SaveDataJ w;
+  SaveDataJ p;
+  SaveDataJ psi;
+  SaveDataJ pProfile;
+  SaveDataJ drag;
+  SaveDataJ dist;
 
   Ellipsoid(float a, float fine, float ds, float Re, String name, boolean recording){
     this.D = n/10.f;  // blockage ratio of 10%
@@ -1412,17 +1412,17 @@ class Ellipsoid{
     flood.range = new Scale(-.5f, .5f);
     flood.setLegend("vorticity");
 
-    // // initialize output files
-    // drag = new SaveDataJ(name + "_drag_circle.txt");
-    // if (recording) {
-    //   u = new SaveDataJ(name + "_u.txt");
-    //   v = new SaveDataJ(name + "_v.txt");
-    //   w = new SaveDataJ(name + "_w.txt");
-    //   p = new SaveDataJ(name + "_p.txt");
-    //   psi = new SaveDataJ(name + "_psi.txt");
-    //   pProfile = new SaveDataJ(name + "_pProfile.txt");
-    //   dist = new SaveDataJ(name + "_dist.txt");
-    // }
+    // initialize output files
+    drag = new SaveDataJ(name + "_drag_circle.txt");
+    if (recording) {
+      u = new SaveDataJ(name + "_u.txt");
+      v = new SaveDataJ(name + "_v.txt");
+      w = new SaveDataJ(name + "_w.txt");
+      p = new SaveDataJ(name + "_p.txt");
+      psi = new SaveDataJ(name + "_psi.txt");
+      pProfile = new SaveDataJ(name + "_pProfile.txt");
+      dist = new SaveDataJ(name + "_dist.txt");
+    }
   }
 
   public void update() {
@@ -1462,38 +1462,38 @@ class Ellipsoid{
     flood.displayTime(t/D);
 
     PVector force = body.pressForce(flow.p);
-    // drag.addFloat(t/D,force.x);
+    drag.addFloat(t/D,force.x);
 
-    // if (((t)%(0.1*D)) <= dt) {
-    //   // save the final flow field
-    //   if (recording) {
-    //     // add data to output files
-    //     u.addField(t/D, flow.u.x);
-    //     v.addField(t/D, flow.u.y);
-    //     w.addField(t/D, flow.u.vorticity());
-    //     p.addField(t/D, flow.p);
-    //     psi.addField(t/D, flow.u.streamFunc());
-    //     pProfile.addProfileData(t/D,body.coords,flow.p);
-    //     dist.addField(t/D, flow.bodyNull);
-    //   }
-    //   if (t/D > 1.25*(trans+mTime)) {
-    //     if (recording) {
-    //       // close the output data files
-    //       u.finish();
-    //       v.finish();
-    //       w.finish();
-    //       p.finish();
-    //       psi.finish();
-    //       pProfile.finish();
-    //       dist.finish();
-    //     }
-    //     cf.update();
-    //     cf.display();
-    //     // saveFrame("AOA20_ellipse.png");
-    //     drag.finish();
-    //     exit();
-    //   }
-    // }
+    if (((t)%(0.1f*D)) <= dt) {
+      // save the final flow field
+      if (recording) {
+        // add data to output files
+        u.addField(t/D, flow.u.x);
+        v.addField(t/D, flow.u.y);
+        w.addField(t/D, flow.u.vorticity());
+        p.addField(t/D, flow.p);
+        psi.addField(t/D, flow.u.streamFunc());
+        pProfile.addProfileData(t/D,body.coords,flow.p);
+        dist.addField(t/D, flow.bodyNull);
+      }
+      if (t/D > 1.25f*(trans+mTime)) {
+        if (recording) {
+          // close the output data files
+          u.finish();
+          v.finish();
+          w.finish();
+          p.finish();
+          psi.finish();
+          pProfile.finish();
+          dist.finish();
+        }
+        cf.update();
+        cf.display();
+        // saveFrame("AOA20_ellipse.png");
+        drag.finish();
+        exit();
+      }
+    }
   }
 }
 
@@ -1505,7 +1505,6 @@ class EllipsoidBody extends EllipseBody {
 
     EllipsoidBody( float x, float y, float _h, float _a, Window window ) {
       super(x, y, _h, _a, window);
-      // unsteady = true;
       dcen = new PVector[m];
       for ( int i=0; i<m; i++ ) dcen[i] = new PVector(0, 0);
     }
@@ -1613,27 +1612,6 @@ class ExpandingBDIM extends BDIM {
       // u.x.a[n-1][j] += sink/r*cos(theta);
       u.x.a[n-1][j] += sink/m*2*PI;
     }
-    // // upstream
-    // for ( int j=0 ; j<m ; j++ ) {
-    //   float x = n/2, y = j - m/2;
-    //   float r = sqrt(sq(x) + sq(y));
-    //   float theta = atan(abs(y/x));
-    //   u.x.a[1][j] -= sink/r*cos(theta);
-    // }
-    // // top
-    // for ( int i=0 ; i<n ; i++ ) {
-    //   float x = i - n/2, y = m/2;
-    //   float r = sqrt(sq(x) + sq(y));
-    //   float theta = atan(abs(y/x));
-    //   u.y.a[i][1] -= sink/r*sin(theta);
-    // }
-    // // bottom
-    // for ( int i=0 ; i<n ; i++ ) {
-    //   float x = i - n/2, y = m/2;
-    //   float r = sqrt(sq(x) + sq(y));
-    //   float theta = atan(abs(y/x));
-    //   u.y.a[i][m-1] += sink/r*sin(theta);
-    // }
 
     // new source term
     Field s = u.divergence().plus(delc.plus(-1).times(ub.divergence()));
@@ -3376,6 +3354,104 @@ class SaveData{
 } 
   
  
+/**********************************
+ SaveDataJ class
+
+ Saves data to a text file with customizable header--James special:)
+***********************************/
+
+class SaveDataJ{
+  ArrayList<PVector> coords;
+  PrintWriter output;
+
+  SaveDataJ(String name) {
+    output = createWriter(name);
+  }
+
+  public void addFloat(float t, float f) {
+    output.print(t + " ");
+    output.print(f + " ");
+    output.println(";");
+  }
+
+  public void addPVector(float t,  PVector v) {
+    output.print(t + " ");
+    output.print(v.x + " ");
+    output.print(v.y + " ");
+    output.println(";");
+  }
+
+  public void addProfileData(float t, ArrayList<PVector> coords, Field a){
+    output.print(t + " ");
+    int n = coords.size();
+    for(int i=0; i<n; i++){
+      output.print(a.linear( coords.get(i).x, coords.get(i).y ) +" ");
+    }
+    output.println(";");
+  }
+
+  public void addField(float t, Field a){ //save the entire field data (square)
+    for (int j=1; j<a.n-1; j++) {
+    for (int i=1; i<a.n-1; i++) {
+      output.print(a.a[i][j] +" ");
+    }
+    output.println(";");
+    }
+  }
+
+  public void addField_5(float t, Field a){ //save every fifth data point of the field (square)
+    for (int j=1; j<a.n/5; j++) {
+    for (int i=1; i<a.n/5; i++) {
+      output.print(a.a[i*5][j*5] +" ");
+    }
+    output.println(";");
+    }
+  }
+
+  public void finish(){
+    output.flush(); // Writes the remaining data to the file
+    output.close(); // Finishes the file
+  }
+}
+
+
+/**********************************
+Write and Resume BDIM functions
+
+For saving and then restarting where you left off.
+***********************************/
+
+public void writeBDIM( String name, float time, BDIM flow ) {
+  PrintWriter output;
+  output = createWriter(name);
+  output.println(time);
+  output.println(flow.dt);
+  int n = flow.p.n;
+  for ( int i=0; i<n; i++ ) {
+    for ( int j=0; j<n; j++ ) {
+      output.println(""+flow.u.x.a[i][j]+", "+flow.u.y.a[i][j]+", "+flow.p.a[i][j]);
+    }
+  }
+  output.flush();
+  output.close();
+}
+
+public float resumeBDIM( String name, BDIM flow) {
+  float[] data;
+  String[] stuff = loadStrings(name);
+  float t = PApplet.parseFloat(stuff[0]);
+  flow.dt = PApplet.parseFloat(stuff[1]);
+  int n = flow.p.n;
+  for ( int i=0; i<n; i++ ) {
+    for ( int j=0; j<n; j++ ) {
+      data = PApplet.parseFloat(split(stuff[2+i*n+j], ','));
+      flow.u.x.a[i][j] = data[0];
+      flow.u.y.a[i][j] = data[1];
+      flow.p.a[i][j] = data[2];
+    }
+  }
+  return t;
+}
 /**********************************
  SaveVectorField class
  
