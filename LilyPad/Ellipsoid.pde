@@ -40,6 +40,7 @@ class Ellipsoid{
   SaveDataJ pProfile;
   SaveDataJ drag;
   SaveDataJ dist;
+  SaveDataJ diameter;
 
   Ellipsoid(float a, float fine, float ds, float Re, String name, boolean recording){
     this.D = n/10.;  // blockage ratio of 10%
@@ -63,14 +64,17 @@ class Ellipsoid{
     flood.setLegend("vorticity");
 
     // initialize output files
-    drag = new SaveDataJ(name + "_drag_circle.txt");
     if (recording) {
+      pProfile = new SaveDataJ(name + "_pProfile.txt");
+      drag = new SaveDataJ(name + "_drag.txt");
+      diameter = new SaveDataJ(name + "_diameter.txt");
+    }
+    if (recordingFields) {
       u = new SaveDataJ(name + "_u.txt");
       v = new SaveDataJ(name + "_v.txt");
       w = new SaveDataJ(name + "_w.txt");
       p = new SaveDataJ(name + "_p.txt");
       psi = new SaveDataJ(name + "_psi.txt");
-      pProfile = new SaveDataJ(name + "_pProfile.txt");
       dist = new SaveDataJ(name + "_dist.txt");
     }
   }
@@ -80,7 +84,7 @@ class Ellipsoid{
     t += dt;
     float aspect = 1;
 
-    float trans = .1*d;  // time to slow body to rest
+    float trans = .5*d;  // time to slow body to rest
     if (t/D < trans) { // smoothly slow body to rest
       body.translate(.5*dt*(cos(PI*(t/D)/trans)+1), 0);
     }
@@ -102,45 +106,50 @@ class Ellipsoid{
     }
 
     body.update(Ds*D,aspect);  // pass the new diameter and aspect ratio to the body
-
     flow.update(body);
     flow.update2();
-
 
     flood.display(flow.u.vorticity());
     body.display();
     flood.displayTime(t/D);
 
-    PVector force = body.pressForce(flow.p);
-    drag.addFloat(t/D,force.x);
+    if (recording) {
+      PVector force = body.pressForce(flow.p);
+      drag.addFloat(t/D,force.x);
+      diameter.addFloat(t/D,Ds);
+    }
 
     if (((t)%(0.1*D)) <= dt) {
-      // save the final flow field
+      // add data to output files
       if (recording) {
-        // add data to output files
+        pProfile.addProfileData(t/D,body.coords,flow.p);
+      }
+      if (recordingFields) {
         u.addField(t/D, flow.u.x);
         v.addField(t/D, flow.u.y);
         w.addField(t/D, flow.u.vorticity());
         p.addField(t/D, flow.p);
         psi.addField(t/D, flow.u.streamFunc());
-        pProfile.addProfileData(t/D,body.coords,flow.p);
         dist.addField(t/D, flow.bodyNull);
       }
       if (t/D > 1.25*(trans+mTime)) {
+        // close the output data files
         if (recording) {
-          // close the output data files
+          pProfile.finish();
+          drag.finish();
+          diameter.finish();
+        }
+        if (recordingFields) {
           u.finish();
           v.finish();
           w.finish();
           p.finish();
           psi.finish();
-          pProfile.finish();
           dist.finish();
         }
         cf.update();
         cf.display();
         // saveFrame("AOA20_ellipse.png");
-        drag.finish();
         exit();
       }
     }
