@@ -10,9 +10,9 @@ Ellipsoid run;
 CirculationFinder cf;
 
 // --input parameters-------
-int p = 8;
+int p = 9;
 int n=(int)pow(2, p);  // number of grid points along a side of domain
-float aoa = 10;  // angle of attack (degrees)
+float aoa = 32;  // angle of attack (degrees)
 float fineness = 5;  // major/minor axis
 float d = 0.25;  // diameter at beginning and end of sim (<1)
 float Re = 1e4;  // Reynolds number by ellipsoid length

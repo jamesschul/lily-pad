@@ -41,6 +41,7 @@ class Ellipsoid{
   SaveDataJ drag;
   SaveDataJ dist;
   SaveDataJ diameter;
+  int uin;
 
   Ellipsoid(float a, float fine, float ds, float Re, String name, boolean recording){
     this.D = n/10.;  // blockage ratio of 10%
@@ -53,7 +54,9 @@ class Ellipsoid{
     Window view = new Window(int((n-n/zoom)/2), int((n-n/zoom)/2), int(n/zoom), int(n/zoom));
 
     body = new EllipsoidBody(n/2, n/2, d*D, 1, view); // define geom
-    flow = new ExpandingBDIM(n, n, 0, body, L_D*D/Re, true);   // QUICK with adaptive dt
+
+    this.uin = 1;  // free stream
+    flow = new ExpandingBDIM(n, n, float(0), body, L_D*D/Re, true, uin);   // QUICK with adaptive dt
     flow.dt = .01; // initial time step
 
     cf = new CirculationFinder(flow,body,view);
@@ -228,6 +231,10 @@ class ExpandingBDIM extends BDIM {
 
   ExpandingBDIM( int n, int m, float dt, EllipsoidBody body, float nu, boolean QUICK) {
     super(n, m, dt, body, nu, QUICK);
+  }
+
+  ExpandingBDIM( int n, int m, float dt, EllipsoidBody body, float nu, boolean QUICK, int uInf) {
+    super(n, m, dt, body, nu, QUICK, uInf);
   }
 
   void update( Body body ) {
