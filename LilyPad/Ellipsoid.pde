@@ -96,7 +96,7 @@ class Ellipsoid{
     float T = L_D*tan(aoa);
     float Ds = d;
     float De = sqrt(1 - sq(t/D - T/2 - trans)/sq(T/2));
-    float mergeTime = 0.1;
+    float mergeTime = 0.2*sin(aoa);
     float DedtMerge = -4*(trans+mergeTime - T/2 - trans)/(sq(T)*sqrt(1 - 4*sq(trans+mergeTime - T/2 - trans)/sq(T)));
     float beta = atan(1/DedtMerge);
     float Rmerge = (sqrt(1 - sq(trans+mergeTime - T/2 - trans)/sq(T/2)) - d)/(1 - sin(beta));
