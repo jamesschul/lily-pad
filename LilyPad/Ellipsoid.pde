@@ -88,24 +88,42 @@ class Ellipsoid{
     float aspect = 1;
 
     float trans = .5*d;  // time to slow body to rest
-    if (t/D < trans) { // smoothly slow body to rest
-      body.translate(.5*dt*(cos(PI*(t/D)/trans)+1), 0);
+    // if (t/D < trans) { // smoothly slow body to rest
+    //   body.translate(.5*dt*(cos(PI*(t/D)/trans)+1), 0);
+    // }
+
+    // increase and decrease smoothly
+    float T = L_D*tan(aoa);
+    float Ds = d;
+    float De = sqrt(1 - sq(t/D - T/2 - trans)/sq(T/2));
+    float mergeTime = 0.1;
+    float DedtMerge = -4*(trans+mergeTime - T/2 - trans)/(sq(T)*sqrt(1 - 4*sq(trans+mergeTime - T/2 - trans)/sq(T)));
+    float beta = atan(1/DedtMerge);
+    float Rmerge = (sqrt(1 - sq(trans+mergeTime - T/2 - trans)/sq(T/2)) - d)/(1 - sin(beta));
+    float k = Rmerge + d;
+    float h = trans + mergeTime - Rmerge*cos(beta);
+    float hEnd = trans + T - mergeTime + Rmerge*cos(beta);
+    float circ = k - sqrt(sq(Rmerge) - sq(t/D - h));
+    float circEnd = k - sqrt(sq(Rmerge) - sq(t/D - hEnd));
+
+    // Merging section
+    if ((t/D > h) && (t/D < (trans+mergeTime))) {
+      Ds = circ;
     }
 
-    // increase and decrease diameter as an ellipse at angle of attack
-    float mTime = L_D*tan(aoa);  // total time from appearance to disappearance
-    float major = mTime/2;  // major radius
-    float minor = major/L_D;  // minor radis
-    float Ds = d;  // starting and ending diameter
-    float off = major*(1-sqrt(1-sq(Ds)));  // time offset from appearance to starting diameter
-
-    // after flow accelerates, compute diameter as a function of time
-    if ((t/D>trans) && (t/D < (trans+mTime-2*off))) {
-      Ds = (sqrt(1-sq((t/D-trans+off-major)/major)));
+    // Ellipse section
+    if((t/D > trans+mergeTime) && (t/D < trans + T - mergeTime)){
+      Ds = De;
     }
-    if(t/D>(trans+mTime-2*off)/2) {
-      // aspect = 1/Ds;  // shrinks as an ellipse in the after half
-      aspect = 1;  // shrinks as a circle (unmodified spheroid)
+
+    // End Merging section
+    if((t/D > trans + T - mergeTime) && (t/D < trans + T - mergeTime + Rmerge*cos(beta))){
+      Ds = circEnd;
+    }
+
+    // Final Sting section
+    if(t/D > trans + T - mergeTime + Rmerge*cos(beta)){
+      Ds = d;
     }
 
     body.update(Ds*D,aspect);  // pass the new diameter and aspect ratio to the body
@@ -135,7 +153,7 @@ class Ellipsoid{
         psi.addField(t/D, flow.u.streamFunc());
         dist.addField(t/D, flow.bodyNull);
       }
-      if (t/D > 1.25*(trans+mTime)) {
+      if (t/D > 1.25*(trans+T)) {
         // close the output data files
         if (recording) {
           pProfile.finish();
