@@ -88,9 +88,9 @@ class Ellipsoid{
     float aspect = 1;
 
     float trans = .5*d;  // time to slow body to rest
-    // if (t/D < trans) { // smoothly slow body to rest
-    //   body.translate(.5*dt*(cos(PI*(t/D)/trans)+1), 0);
-    // }
+    if (t/D < trans) { // smoothly slow body to rest
+      body.translate(.5*dt*(cos(PI*(t/D)/trans)+1), 0);
+    }
 
     // increase and decrease smoothly
     float T = L_D*tan(aoa);
